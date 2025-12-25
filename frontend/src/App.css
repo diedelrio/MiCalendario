@@ -1,0 +1,397 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+.admin-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 15px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border-left: 5px solid #4a90e2; /* Un toque de color de administrador */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-container {
+  max-width: 800px;
+  margin: 0 auto;
+  font-family: Arial, sans-serif;
+}
+form.admin-card {
+  flex-direction: column; /* Pone los inputs uno abajo del otro */
+}
+/* Contenedor General */
+.app-container {
+  max-width: 950px;
+  margin: 0 auto;
+  padding: 10px 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+header h1 {
+  text-align: left;
+  color: #2c3e50;
+  margin-bottom: 30px;
+  font-size: 2rem;
+}
+
+/* LAYOUT DE DOS COLUMNAS */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr; /* Izquierda fija, Derecha flexible */
+  gap: 30px;
+  align-items: start;
+}
+
+/* Columna Izquierda (Sidebar) */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Columna Derecha (Lista) */
+.content {
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  min-height: 600px;
+}
+
+/* Ajustes de las Tarjetas (Admin-Cards) */
+.admin-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid #edf2f7;
+  transition: transform 0.2s;
+}
+
+.admin-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Estilo de los inputs dentro de la columna */
+input {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  box-sizing: border-box; /* Evita que el input se salga del borde */
+}
+
+/* Responsive: si la pantalla es chica, se pone una columna bajo la otra */
+@media (max-width: 900px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #edf2f7;
+  padding-bottom: 10px;
+}
+
+.content-header h2 {
+  margin: 0;
+  color: #2d3748;
+}
+
+.no-appointments {
+  text-align: center;
+  padding: 50px;
+  color: #a0aec0;
+  font-style: italic;
+}
+/* src/App.css */
+
+/* Contenedor del calendario */
+.calendar-card {
+  background: white;
+  padding: 15px;
+  border-radius: 15px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border: 1px solid #edf2f7;
+  margin-bottom: 10px;
+}
+
+/* Reset de estilos de la librería para que encaje con tu diseño */
+.react-calendar {
+  width: 100% !important;
+  border: none !important;
+  font-family: inherit !important;
+}
+
+/* Personalizar el día seleccionado (Círculo azul de tu imagen) */
+.react-calendar__tile--active {
+  background: #3182ce !important; /* Azul profesional */
+  color: white !important;
+  border-radius: 50%; /* Lo hace circular como en tu foto */
+}
+
+.react-calendar__tile--now {
+  background: #ebf8ff !important; /* Azul muy claro para hoy */
+  color: #2b6cb0 !important;
+  border-radius: 50%;
+}
+
+.react-calendar__navigation button {
+  font-weight: bold;
+  color: #2d3748;
+  font-size: 1.1rem;
+}
+/* --- ESTILO DE BOTONES --- */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  padding: 10px 15px;
+}
+
+.btn-save {
+  background-color: #3182ce; /* Azul de tu imagen */
+  color: white;
+}
+
+.btn-save:hover {
+  background-color: #2b6cb0;
+  box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+}
+
+.btn-edit {
+  background-color: #edf2f7;
+  color: #2d3748;
+}
+
+.btn-edit:hover {
+  background-color: #e2e8f0;
+}
+
+.btn-delete {
+  background-color: #fff5f5;
+  color: #e53e3e;
+}
+
+.btn-delete:hover {
+  background-color: #fed7d7;
+}
+
+/* --- DETALLES DE LA LISTA DE CITAS --- */
+.content-header .count-badge {
+  background: #ebf8ff;
+  color: #2b6cb0;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.date-display {
+  color: #718096;
+  font-size: 0.95rem;
+  margin-top: 5px;
+}
+
+/* --- TARJETAS DE CITA (CARD-ITEM) --- */
+.card-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 25px;
+  border-left-width: 8px !important; /* Borde más grueso como en la foto */
+}
+
+.card-info h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1a202c;
+}
+
+.card-info p {
+  margin: 5px 0 0;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.card-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* --- FORMULARIO MÁS LIMPIO --- */
+.appointment-form input {
+  background-color: #f7fafc;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 12px;
+}
+
+.appointment-form input:focus {
+  outline: none;
+  border-color: #3182ce;
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+}
+/* Layout Superior: Dos columnas arriba */
+.top-control-section {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr; /* Mitad y mitad */
+  gap: 20px;
+
+  align-items: start;
+}
+
+/* Sección de Lista: Ancho completo */
+.full-content {
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  margin-bottom: 30px;
+}
+
+/* Ajuste para que las tarjetas de la lista se vean más compactas */
+.card-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #f0f0f0;
+  margin-bottom: 10px;
+  padding: 15px 20px;
+  border-radius: 10px;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .top-control-section {
+    grid-template-columns: 1fr; /* En móviles, uno sobre otro */
+  }
+}
+
+.time-row {
+  display: flex;
+  gap: 10px;       /* Reducimos un poco el espacio para que quepan bien los 3 */
+  margin: 0px 0;
+  width: 100%;     /* Asegura que ocupe todo el ancho del form */
+}
+
+.input-group {
+  flex: 1;         /* Esto es la clave: cada uno toma 1/3 del espacio */
+  display: flex;
+  flex-direction: column;
+}
+
+.input-group label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #a0aec0;
+  margin-bottom: 4px;
+}
+
+/* Ajuste para que los inputs no tengan margenes raros dentro de la fila */
+.time-row input {
+  margin: 0;
+  width: 100%;
+}
+.form-buttons {
+  display: flex;
+  justify-content: flex-end; /* Alinea los botones a la derecha */
+  gap: 10px;                 /* Espacio entre Guardar y Cancelar */
+  margin-top: 10px;          /* Separa los botones de los inputs de arriba */
+}
+
+/* Si quieres que el botón de Guardar sea más ancho en modo edición */
+.form-buttons button {
+  min-width: 120px;
+}
+.appointment-form{
+  margin-top: 0px;
+}
+/* Ajustes específicos para la card del formulario */
+.sidebar .admin-card {
+  margin-top: 0;
+  padding-top: 10px; /* Espacio mínimo arriba */
+}
+
+/* Sube el título dentro de la card */
+.admin-card h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+  color: #2c3e50;
+}
+/* src/App.css */
+
+/* Estilo para el día que tiene citas */
+.has-appointment {
+  position: relative;
+  color: #3182ce !important; /* Cambia el color del número a azul */
+  font-weight: bold !important;
+}
+
+/* Añadir un puntito debajo del número (estilo profesional) */
+.has-appointment::after {
+  content: "•";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  color: #3182ce;
+}
+
+/* Evitar que el punto se vea raro si el día está seleccionado */
+.react-calendar__tile--active.has-appointment::after {
+  color: white; /* Punto blanco si el fondo es azul */
+}

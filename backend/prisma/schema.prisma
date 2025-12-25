@@ -1,0 +1,27 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+// Aquí definimos cómo se verá una Cita
+model Appointment {
+  id          Int      @id @default(autoincrement())
+  title       String
+  clientName  String   // <--- Nuevo
+  date        String
+  startTime   String   // <--- Nuevo
+  endTime     String   // <--- Nuevo
+  description String?
+}
+
+// Aquí definimos las Notas
+model Note {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+}
