@@ -9,17 +9,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 // Aquí definimos cómo se verá una Cita
+model Space {
+  id           Int           @id @default(autoincrement())
+  name         String
+  type         String        // Escritorio, Mesa, Despacho, Sala
+  capacity     Int           @default(1)
+  status       String        @default("Activo")
+  appointments Appointment[]
+}
+
 model Appointment {
   id          Int      @id @default(autoincrement())
   title       String
-  clientName  String   // <--- Nuevo
+  clientName  String
   date        String
-  startTime   String   // <--- Nuevo
-  endTime     String   // <--- Nuevo
+  startTime   String
+  endTime     String
   description String?
+  spaceId     Int      // <--- Relación con el Espacio
+  space       Space    @relation(fields: [spaceId], references: [id])
+  isRecurring Boolean  @default(false)
+  parentId    Int?     // Para agrupar citas recurrentes
 }
 
-// Aquí definimos las Notas
 model Note {
   id        Int      @id @default(autoincrement())
   content   String

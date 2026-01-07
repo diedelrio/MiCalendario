@@ -18,7 +18,7 @@ const AppointmentList = ({ appointments, hoy, startEdit, deleteAppo }) => {
             </div>
             <div className="card-actions">
               <button onClick={() => startEdit(appo)} className="btn-edit">Editar</button>
-              <button onClick={() => deleteAppo(appo.id)} className="btn-delete">Eliminar</button>
+              <button onClick={() => deleteAppo(appo)} className="btn-delete">Eliminar</button>
             </div>
           </div>
         ))}

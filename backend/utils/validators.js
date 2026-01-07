@@ -1,17 +1,24 @@
 // backend/utils/validators.js
-
-async function checkScheduleConflict(prisma, date, startTime) {
-  // Buscamos si existe una cita en esa fecha y hora
-  const existing = await prisma.appointment.findFirst({
-    where: {
-      date: date,
-      startTime: startTime,
-    },
+async function checkSpaceAvailability(prisma, spaceId, date, startTime, endTime, excludeId = null) {
+  const space = await prisma.space.findUnique({ 
+    where: { id: parseInt(spaceId) } 
   });
 
-  // Si existe devuelve true (hay conflicto), si no, false
-  return !!existing; 
+  if (!space) throw new Error("Espacio no encontrado");
+
+  // Buscamos citas que se solapen, pero EXCLUIMOS la que estamos editando
+  const overlaps = await prisma.appointment.findMany({
+    where: {
+      spaceId: parseInt(spaceId),
+      date: date,
+      id: excludeId ? { not: parseInt(excludeId) } : undefined, // <--- CLAVE: Ignorar el ID actual
+      OR: [
+        { startTime: { lt: endTime }, endTime: { gt: startTime } }
+      ]
+    }
+  });
+
+  return overlaps.length < space.capacity;
 }
 
-// Exportamos la función para usarla en otros archivos
-module.exports = { checkScheduleConflict };
+module.exports = { checkSpaceAvailability };

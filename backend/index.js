@@ -1,22 +1,31 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const cors = require('cors');
-const { checkScheduleConflict } = require('./utils/validators'); // Importar
+// Cambiamos checkScheduleConflict por la nueva lógica de disponibilidad por espacio
+const { checkSpaceAvailability } = require('./utils/validators');
+const { createSeries } = require('./utils/appointmentHelpers');
 
+const app = express();
+const prisma = new PrismaClient();
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+
+// Configuraciones de tiempo desde .env o valores por defecto
 const TIEMPO_MINIMO = parseInt(process.env.TIEMPO_MINIMO_MINUTOS) || 60;
 const RANGO_PASO = parseInt(process.env.RANGO_PASO_MINUTOS) || 30;
 
+// Función auxiliar para validar reglas de negocio de tiempo
 const validarHoras = (startTime, endTime) => {
     const start = new Date(`2000-01-01T${startTime}`);
     const end = new Date(`2000-01-01T${endTime}`);
     
-    // 1. Validar que empiecen y terminen en bloques (00 o 30)
     if (start.getMinutes() % RANGO_PASO !== 0 || end.getMinutes() % RANGO_PASO !== 0) {
         return { valido: false, msg: `Las horas deben ser múltiplos de ${RANGO_PASO} minutos.` };
     }
 
-    // 2. Validar duración mínima
-    const duracion = (end - start) / (1000 * 60); // Diferencia en minutos
+    const duracion = (end - start) / (1000 * 60); 
     if (duracion < TIEMPO_MINIMO) {
         return { valido: false, msg: `La cita debe durar al menos ${TIEMPO_MINIMO} minutos.` };
     }
@@ -24,136 +33,245 @@ const validarHoras = (startTime, endTime) => {
     return { valido: true };
 };
 
-const app = express();
-const prisma = new PrismaClient();
+// --- RUTAS PARA ESPACIOS ---
 
-// Middlewares
-app.use(cors()); // Permite que el frontend se conecte
-app.use(express.json()); // Permite recibir datos en formato JSON
+app.get('/spaces', async (req, res) => {
+    try {
+        const spaces = await prisma.space.findMany({
+            where: { status: 'Activo' }
+        });
+        res.json(spaces);
+    } catch (error) {
+        res.status(500).json({ error: "Error al obtener espacios" });
+    }
+});
 
 // --- RUTAS PARA CITAS (Appointments) ---
 
-// 1. Obtener todas las citas
 app.get('/appointments', async (req, res) => {
     try {
         const appointments = await prisma.appointment.findMany({
+            include: { space: true }, // Incluye detalles del espacio reservado
             orderBy: [
-                { date: 'asc'}, 
+                { date: 'asc' }, 
                 { startTime: 'asc' }
-             ] // Ordenar por fecha y hora de inicio
+            ]
         });
-        res.json(appointments);
+        // Para cada cita, contamos cuántas hermanas tiene con el mismo parentId
+        const appointmentsWithCount = await Promise.all(appointments.map(async (appo) => {
+            if (appo.parentId) {
+                const count = await prisma.appointment.count({
+                    where: { parentId: appo.parentId }
+                });
+                return { ...appo, seriesCount: count };
+            }
+            return { ...appo, seriesCount: 1 };
+        }));
+
+        res.json(appointmentsWithCount);
     } catch (error) {
-        console.error("--- ERROR DETECTADO EN EL ORDENAMIENTO ---"); //--> DEBUG
-        console.error(error.message); //--> DEBUG
-        res.status(500).json({ error: "No se pudieron obtener las citas" });
+        res.status(500).json({ error: "Error al obtener las citas" });
     }
 });
 
-// 2. Crear una nueva cita
+// --- RUTA POST ACTUALIZADA (Crea la serie y soluciona el error de sintaxis) ---
 app.post('/appointments', async (req, res) => {
-    console.log("Datos recibidos:", req.body); // <-- DEBUG
-  const { 
-    title, 
-    clientName,
-    date, 
-    startTime,
-    endTime,
-    description } = req.body;
+    // 1. Extraemos los datos del body
+    const { 
+        isRecurring, weeks, date, ...rest 
+    } = req.body;
+
     try {
-    
-    // VALIDAR HORAS
-    const { startTime, endTime } = req.body;
-    const validacion = validarHoras(startTime, endTime);
-    
-    if (!validacion.valido) {
-        return res.status(400).json({ message: validacion.msg });
+        // 2. Validar formato de horas (usando tu función existente)
+        const validacion = validarHoras(rest.startTime, rest.endTime);
+        if (!validacion.valido) {
+            return res.status(400).json({ message: validacion.msg });
+        }
+
+        // 3. Crear la primera cita (La "Madre" de la serie o cita única)
+        // Usamos checkSpaceAvailability antes de crearla
+        const isAvailable = await checkSpaceAvailability(prisma, rest.spaceId, date, rest.startTime, rest.endTime);
+        if (!isAvailable) {
+            return res.status(400).json({ message: `Conflicto: El espacio no está disponible el día ${date}` });
+        }
+
+        const firstAppo = await prisma.appointment.create({
+            data: { 
+                ...rest, 
+                date, 
+                isRecurring: isRecurring || false, 
+                spaceId: parseInt(rest.spaceId) 
+            }
+        });
+
+        // 4. Lógica de Recurrencia: Si es más de 1 semana, usamos el helper
+        if (isRecurring && parseInt(weeks) > 1) {
+            // Vinculamos la primera cita a sí misma como padre
+            await prisma.appointment.update({ 
+                where: { id: firstAppo.id }, 
+                data: { parentId: firstAppo.id } 
+            });
+            
+            // Calculamos la fecha de la segunda cita (7 días después de la primera)
+            const nextDate = new Date(date + "T00:00:00");
+            nextDate.setDate(nextDate.getDate() + 7);
+            const startDateNext = nextDate.toISOString().split('T')[0];
+
+            // Llamamos a la función centralizada de tu carpeta utils
+            // Enviamos (weeks - 1) porque la primera ya la creamos arriba
+            await createSeries(prisma, rest, startDateNext, parseInt(weeks) - 1, firstAppo.id);
+        }
+
+        res.status(201).json({ message: "Cita(s) creada(s) con éxito" });
+
+    } catch (error) {
+        console.error("ERROR EN POST:", error.message);
+        res.status(400).json({ message: error.message });
     }
-    
-    // 1. BUSCAR SI YA EXISTE UNA CITA IGUAL
-    // Buscamos una cita que coincida en FECHA e HORA DE INICIO
-    // LLAMADA A LA FUNCIÓN EXTERNA DE VALIDACIÓN
-    const isBusy = await checkScheduleConflict(prisma, date, startTime);
-    
-    // 2. SI EXISTE, ENVIAMOS UN ERROR Y NO GUARDAMOS
-    if (isBusy) {
-        return res.status(400).json({ 
-        error: "Conflicto", 
-        message: "El horario ya está ocupado por otra cita." 
-    });
-    }
-    // 3. SI NO EXISTE, CREAMOS LA CITA
-    const newAppointment = await prisma.appointment.create({
-      data: { 
-        title: title,
-        clientName: clientName, 
-        date: date,
-        startTime: startTime,
-        endTime: endTime,
-        // Si description es undefined, enviamos un string vacío o null
-        description: description || ""
-    },
-    });
-    res.json(newAppointment);
-  } catch (error) {
-    console.error("ERROR EN PRISMA:", error); // <-- DEBUG
-    res.status(500).json({ error: "No se pudo crear la cita" });
-  }
 });
 
-// 3. Eliminar una cita
-app.delete('/appointments/:id', async (req, res) => {
-  const { id } = req.params;
-  await prisma.appointment.delete({
-    where: { id: parseInt(id) },
-  });
-  res.json({ message: "Cita eliminada" });
-});
-
-// 4. Editar una cita 
 app.put('/appointments/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, clientName, date, startTime, endTime } = req.body;
+  const { title, clientName, date, startTime, endTime, spaceId, editAllSeries, weeks } = req.body;
+  const appointmentId = parseInt(id);
+
   try {
-    const updated = await prisma.appointment.update({
-      where: { id: parseInt(id) },
-      data: { title, clientName, date, startTime, endTime },
-    });
-    res.json(updated);
+    // 1. Buscamos la cita original
+    const original = await prisma.appointment.findUnique({ where: { id: appointmentId } });
+    if (!original) return res.status(404).json({ message: "Cita no encontrada" });
+
+    if (editAllSeries && original.parentId) {
+      // --- ESCENARIO A: EDITAR TODA LA SERIE ---
+
+      // 1. Actualizamos los datos comunes de todas las citas actuales de la serie
+      await prisma.appointment.updateMany({
+        where: { parentId: original.parentId },
+        data: { title, clientName, startTime, endTime, spaceId: parseInt(spaceId) }
+      });
+
+      // 2. Lógica de Extensión
+      const currentCount = await prisma.appointment.count({
+        where: { parentId: original.parentId }
+      });
+      const goalWeeks = parseInt(weeks);
+
+      if (goalWeeks > currentCount) {
+        const lastAppo = await prisma.appointment.findFirst({
+          where: { parentId: original.parentId },
+          orderBy: { date: 'desc' }
+        });
+
+        // --- INICIO DE LA CORRECCIÓN DE FECHA ---
+        // 1. Descomponemos el string YYYY-MM-DD de la última cita
+        const [y, m, d] = lastAppo.date.split('-').map(Number);
+        
+        // 2. Creamos la fecha a mediodía (12:00) para evitar saltos de día por zona horaria
+        const nextDateObj = new Date(y, m - 1, d, 12, 0, 0);
+        
+        // 3. Sumamos 7 días
+        nextDateObj.setDate(nextDateObj.getDate() + 7);
+        
+        // 4. Formateamos manualmente a YYYY-MM-DD
+        const nextY = nextDateObj.getFullYear();
+        const nextM = String(nextDateObj.getMonth() + 1).padStart(2, '0');
+        const nextD = String(nextDateObj.getDate()).padStart(2, '0');
+        const startDateNext = `${nextY}-${nextM}-${nextD}`;
+        // --- FIN DE LA CORRECCIÓN ---
+
+        // Usamos el helper centralizado
+        await createSeries(
+          prisma, 
+          { title, clientName, startTime, endTime, spaceId }, 
+          startDateNext, 
+          goalWeeks - currentCount, 
+          original.parentId
+        );
+      }
+
+      return res.json({ message: "Serie actualizada y extendida con éxito" });
+
+    } else {
+      // --- ESCENARIO B: EDITAR SOLO ESTA CITA ---
+      const isAvailable = await checkSpaceAvailability(prisma, spaceId, date, startTime, endTime, appointmentId);
+      
+      if (!isAvailable) {
+        return res.status(400).json({ message: "Espacio ocupado por otra reserva." });
+      }
+
+      const updated = await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: { title, clientName, date, startTime, endTime, spaceId: parseInt(spaceId) },
+      });
+      res.json(updated);
+    }
   } catch (error) {
-    console.error("Error al editar:", error); // DEBUG
-    res.status(500).json({ error: "Error al actualizar" });
+    console.error("ERROR EN PUT:", error.message);
+    res.status(400).json({ message: error.message });
   }
+});
+
+// --- RUTA DELETE ACTUALIZADA (Soluciona el error de Prisma findUnique) ---
+app.delete('/appointments/:id', async (req, res) => {
+    const { id } = req.params;
+    const { deleteAll } = req.query;
+
+    // Validación de ID para evitar que Prisma reciba undefined o NaN
+    const appointmentId = parseInt(id);
+    if (isNaN(appointmentId)) {
+        return res.status(400).json({ error: "ID de cita no válido" });
+    }
+
+    try {
+        const appointment = await prisma.appointment.findUnique({
+            where: { id: appointmentId } // Se asegura que sea un Int válido
+        });
+
+        if (!appointment) {
+            return res.status(404).json({ message: "Cita no encontrada" });
+        }
+
+        if (deleteAll === 'true' && appointment.parentId) {
+            await prisma.appointment.deleteMany({
+                where: { parentId: appointment.parentId }
+            });
+            res.json({ message: "Serie eliminada" });
+        } else {
+            await prisma.appointment.delete({
+                where: { id: appointmentId }
+            });
+            res.json({ message: "Cita eliminada" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar" });
+    }
 });
 
 // --- RUTAS PARA NOTAS ---
 
-// Obtener todas las notas
 app.get('/notes', async (req, res) => {
-  const notes = await prisma.note.findMany({
-    orderBy: { createdAt: 'desc' } // Las más nuevas primero
-  });
-  res.json(notes);
+    const notes = await prisma.note.findMany({
+        orderBy: { createdAt: 'desc' }
+    });
+    res.json(notes);
 });
 
-// Crear una nota
 app.post('/notes', async (req, res) => {
-  const { content } = req.body;
-  const newNote = await prisma.note.create({
-    data: { content }
-  });
-  res.json(newNote);
+    const { content } = req.body;
+    const newNote = await prisma.note.create({
+        data: { content }
+    });
+    res.json(newNote);
 });
 
-// Eliminar una nota
 app.delete('/notes/:id', async (req, res) => {
-  await prisma.note.delete({
-    where: { id: parseInt(req.params.id) }
-  });
-  res.json({ message: "Nota eliminada" });
+    await prisma.note.delete({
+        where: { id: parseInt(req.params.id) }
+    });
+    res.json({ message: "Nota eliminada" });
 });
+
 // Iniciar servidor
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`Servidor MiCalendario Pro corriendo en http://localhost:${PORT}`);
 });
