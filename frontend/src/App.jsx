@@ -98,9 +98,6 @@ function App() {
   };
 
   const openDeleteDialog = (appo) => {
-    console.log("Eliminando cita:", appo); // Debug para verificar parentId
-    console.log("Abriendo diálogo para:", appo);
-    console.log("parentId:", appo.parentId);
     
     if (appo.parentId) {
       // Si tiene parentId, NADA de window.confirm. Abrimos el modal.
